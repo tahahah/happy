@@ -398,14 +398,23 @@ export async function startDaemon(): Promise<void> {
 
           // Construct command for the CLI
           const cliPath = join(projectPath(), 'dist', 'index.mjs');
-          // Determine agent command - support claude, codex, and gemini
-          const agent = options.agent === 'gemini' ? 'gemini' : (options.agent === 'codex' ? 'codex' : (options.agent === 'openclaw' ? 'openclaw' : 'claude'));
+          // Determine agent command - support claude, codex, gemini, openclaw, and ml-intern
+          const agent = options.agent === 'gemini' ? 'gemini'
+            : options.agent === 'codex' ? 'codex'
+            : options.agent === 'openclaw' ? 'openclaw'
+            : options.agent === 'ml-intern' ? 'ml-intern'
+            : 'claude';
           // Restrict resume to Claude — Codex/Gemini don't honour the
           // happy-pass-through `--resume <id>` argument the same way.
           const resumeFragment = options.resumeClaudeSessionId && agent === 'claude'
             ? ` --resume ${shellescape(options.resumeClaudeSessionId)}`
             : '';
-          const fullCommand = `node --no-warnings --no-deprecation ${cliPath} ${agent} --happy-starting-mode remote --started-by daemon${resumeFragment}`;
+          // For ACP agents (ml-intern), Happy flags come before the agent name so the
+          // acp subcommand parser can strip them, then receives 'ml-intern' as the agent.
+          const agentArgs = agent === 'ml-intern'
+            ? `acp --happy-starting-mode remote --started-by daemon ml-intern`
+            : `${agent} --happy-starting-mode remote --started-by daemon${resumeFragment}`;
+          const fullCommand = `node --no-warnings --no-deprecation ${cliPath} ${agentArgs}`;
 
           // Spawn in tmux with environment variables
           // IMPORTANT: Pass complete environment (process.env + extraEnv) because:
@@ -487,7 +496,7 @@ export async function startDaemon(): Promise<void> {
         if (!useTmux) {
           logger.debug(`[DAEMON RUN] Using regular process spawning`);
 
-          // Construct arguments for the CLI - support claude, codex, and gemini
+          // Construct arguments for the CLI - support claude, codex, gemini, openclaw, and ml-intern
           let agentCommand: string;
           switch (options.agent) {
             case 'claude':
@@ -503,6 +512,12 @@ export async function startDaemon(): Promise<void> {
             case 'openclaw':
               agentCommand = 'openclaw';
               break;
+            case 'ml-intern':
+              // ml-intern speaks ACP; route through Happy's acp runner with the known agent name.
+              // Happy flags (--started-by daemon) go before the agent name; the acp
+              // parser strips them and passes 'ml-intern' to resolveAcpAgentConfig.
+              agentCommand = 'acp';
+              break;
             default:
               return {
                 type: 'error',
@@ -514,6 +529,12 @@ export async function startDaemon(): Promise<void> {
             '--happy-starting-mode', 'remote',
             '--started-by', 'daemon'
           ];
+
+          // For ACP-based agents (ml-intern), append the agent name after the
+          // Happy flags so resolveAcpAgentConfig receives it.
+          if (agentCommand === 'acp' && options.agent === 'ml-intern') {
+            args.push('ml-intern');
+          }
 
           // resumeClaudeSessionId attaches the new Happy session to a pre-existing
           // Claude conversation file (used by the fork / duplicate flow). We pass

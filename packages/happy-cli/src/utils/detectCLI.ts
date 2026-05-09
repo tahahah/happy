@@ -8,6 +8,7 @@ export interface CLIAvailability {
   codex: boolean;
   gemini: boolean;
   openclaw: boolean;
+  mlIntern: boolean;
   detectedAt: number;
 }
 
@@ -44,7 +45,10 @@ function detectPosix(): CLIAvailability {
   const openclawEnv = !!process.env.OPENCLAW_GATEWAY_URL;
   const openclaw = openclawCommand || openclawConfig || openclawEnv;
 
-  return { claude, codex, gemini, openclaw, detectedAt: Date.now() };
+  // ML Intern: check for ml-intern-acp (ACP entry point) or ml-intern CLI
+  const mlIntern = commandExists('ml-intern-acp') || commandExists('ml-intern');
+
+  return { claude, codex, gemini, openclaw, mlIntern, detectedAt: Date.now() };
 }
 
 function detectWindows(): CLIAvailability {
@@ -67,5 +71,8 @@ function detectWindows(): CLIAvailability {
   const openclawEnv = !!process.env.OPENCLAW_GATEWAY_URL;
   const openclaw = openclawCommand || openclawConfig || openclawEnv;
 
-  return { claude, codex, gemini, openclaw, detectedAt: Date.now() };
+  // ML Intern: check for ml-intern-acp (ACP entry point) or ml-intern CLI
+  const mlIntern = checkCommand('ml-intern-acp') || checkCommand('ml-intern');
+
+  return { claude, codex, gemini, openclaw, mlIntern, detectedAt: Date.now() };
 }
