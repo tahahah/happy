@@ -409,10 +409,12 @@ export async function startDaemon(): Promise<void> {
           const resumeFragment = options.resumeClaudeSessionId && agent === 'claude'
             ? ` --resume ${shellescape(options.resumeClaudeSessionId)}`
             : '';
-          // For ACP agents (ml-intern), Happy flags come before the agent name so the
-          // acp subcommand parser can strip them, then receives 'ml-intern' as the agent.
+          // For ACP agents (ml-intern): the `acp` subcommand only strips --started-by
+          // and --verbose, not --happy-starting-mode. Put the agent name first so
+          // resolveAcpAgentConfig sees it correctly, and omit --happy-starting-mode
+          // which is not consumed by the acp parser.
           const agentArgs = agent === 'ml-intern'
-            ? `acp --happy-starting-mode remote --started-by daemon ml-intern`
+            ? `acp ml-intern --started-by daemon`
             : `${agent} --happy-starting-mode remote --started-by daemon${resumeFragment}`;
           const fullCommand = `node --no-warnings --no-deprecation ${cliPath} ${agentArgs}`;
 
@@ -524,17 +526,12 @@ export async function startDaemon(): Promise<void> {
                 errorMessage: `Unsupported agent type: '${options.agent}'. Please update your CLI to the latest version.`
               };
           }
-          const args = [
-            agentCommand,
-            '--happy-starting-mode', 'remote',
-            '--started-by', 'daemon'
-          ];
-
-          // For ACP-based agents (ml-intern), append the agent name after the
-          // Happy flags so resolveAcpAgentConfig receives it.
-          if (agentCommand === 'acp' && options.agent === 'ml-intern') {
-            args.push('ml-intern');
-          }
+          // For ml-intern (ACP): args must be ['acp', 'ml-intern', '--started-by', 'daemon']
+          // The acp subcommand parser strips only --started-by/--verbose.
+          // --happy-starting-mode is NOT stripped, so we omit it for ACP agents.
+          const args = agentCommand === 'acp'
+            ? [agentCommand, 'ml-intern', '--started-by', 'daemon']
+            : [agentCommand, '--happy-starting-mode', 'remote', '--started-by', 'daemon'];
 
           // resumeClaudeSessionId attaches the new Happy session to a pre-existing
           // Claude conversation file (used by the fork / duplicate flow). We pass
