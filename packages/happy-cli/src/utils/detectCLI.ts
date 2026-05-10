@@ -8,6 +8,7 @@ export interface CLIAvailability {
   codex: boolean;
   gemini: boolean;
   openclaw: boolean;
+  mlIntern: boolean;
   detectedAt: number;
 }
 
@@ -44,7 +45,12 @@ function detectPosix(): CLIAvailability {
   const openclawEnv = !!process.env.OPENCLAW_GATEWAY_URL;
   const openclaw = openclawCommand || openclawConfig || openclawEnv;
 
-  return { claude, codex, gemini, openclaw, detectedAt: Date.now() };
+  // ML Intern: only check ml-intern-acp (the ACP entry point).
+  // The plain ml-intern command does not implement ACP, so detecting it alone
+  // would show ml-intern as available but fail with ENOENT on spawn.
+  const mlIntern = commandExists('ml-intern-acp');
+
+  return { claude, codex, gemini, openclaw, mlIntern, detectedAt: Date.now() };
 }
 
 function detectWindows(): CLIAvailability {
@@ -67,5 +73,8 @@ function detectWindows(): CLIAvailability {
   const openclawEnv = !!process.env.OPENCLAW_GATEWAY_URL;
   const openclaw = openclawCommand || openclawConfig || openclawEnv;
 
-  return { claude, codex, gemini, openclaw, detectedAt: Date.now() };
+  // ML Intern: only check ml-intern-acp (the ACP entry point).
+  const mlIntern = checkCommand('ml-intern-acp');
+
+  return { claude, codex, gemini, openclaw, mlIntern, detectedAt: Date.now() };
 }

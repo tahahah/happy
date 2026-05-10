@@ -398,14 +398,25 @@ export async function startDaemon(): Promise<void> {
 
           // Construct command for the CLI
           const cliPath = join(projectPath(), 'dist', 'index.mjs');
-          // Determine agent command - support claude, codex, and gemini
-          const agent = options.agent === 'gemini' ? 'gemini' : (options.agent === 'codex' ? 'codex' : (options.agent === 'openclaw' ? 'openclaw' : 'claude'));
+          // Determine agent command - support claude, codex, gemini, openclaw, and ml-intern
+          const agent = options.agent === 'gemini' ? 'gemini'
+            : options.agent === 'codex' ? 'codex'
+            : options.agent === 'openclaw' ? 'openclaw'
+            : options.agent === 'ml-intern' ? 'ml-intern'
+            : 'claude';
           // Restrict resume to Claude — Codex/Gemini don't honour the
           // happy-pass-through `--resume <id>` argument the same way.
           const resumeFragment = options.resumeClaudeSessionId && agent === 'claude'
             ? ` --resume ${shellescape(options.resumeClaudeSessionId)}`
             : '';
-          const fullCommand = `node --no-warnings --no-deprecation ${cliPath} ${agent} --happy-starting-mode remote --started-by daemon${resumeFragment}`;
+          // For ACP agents (ml-intern): the `acp` subcommand only strips --started-by
+          // and --verbose, not --happy-starting-mode. Put the agent name first so
+          // resolveAcpAgentConfig sees it correctly, and omit --happy-starting-mode
+          // which is not consumed by the acp parser.
+          const agentArgs = agent === 'ml-intern'
+            ? `acp ml-intern --started-by daemon`
+            : `${agent} --happy-starting-mode remote --started-by daemon${resumeFragment}`;
+          const fullCommand = `node --no-warnings --no-deprecation ${cliPath} ${agentArgs}`;
 
           // Spawn in tmux with environment variables
           // IMPORTANT: Pass complete environment (process.env + extraEnv) because:
@@ -487,7 +498,7 @@ export async function startDaemon(): Promise<void> {
         if (!useTmux) {
           logger.debug(`[DAEMON RUN] Using regular process spawning`);
 
-          // Construct arguments for the CLI - support claude, codex, and gemini
+          // Construct arguments for the CLI - support claude, codex, gemini, openclaw, and ml-intern
           let agentCommand: string;
           switch (options.agent) {
             case 'claude':
@@ -503,17 +514,24 @@ export async function startDaemon(): Promise<void> {
             case 'openclaw':
               agentCommand = 'openclaw';
               break;
+            case 'ml-intern':
+              // ml-intern speaks ACP; route through Happy's acp runner with the known agent name.
+              // Happy flags (--started-by daemon) go before the agent name; the acp
+              // parser strips them and passes 'ml-intern' to resolveAcpAgentConfig.
+              agentCommand = 'acp';
+              break;
             default:
               return {
                 type: 'error',
                 errorMessage: `Unsupported agent type: '${options.agent}'. Please update your CLI to the latest version.`
               };
           }
-          const args = [
-            agentCommand,
-            '--happy-starting-mode', 'remote',
-            '--started-by', 'daemon'
-          ];
+          // For ml-intern (ACP): args must be ['acp', 'ml-intern', '--started-by', 'daemon']
+          // The acp subcommand parser strips only --started-by/--verbose.
+          // --happy-starting-mode is NOT stripped, so we omit it for ACP agents.
+          const args = agentCommand === 'acp'
+            ? [agentCommand, 'ml-intern', '--started-by', 'daemon']
+            : [agentCommand, '--happy-starting-mode', 'remote', '--started-by', 'daemon'];
 
           // resumeClaudeSessionId attaches the new Happy session to a pre-existing
           // Claude conversation file (used by the fork / duplicate flow). We pass

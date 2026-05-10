@@ -63,6 +63,7 @@ const agentIcons = {
     codex: require('@/assets/images/icon-gpt.png'),
     openclaw: require('@/assets/images/icon-openclaw.png'),
     gemini: require('@/assets/images/icon-gemini.png'),
+    'ml-intern': require('@/assets/images/icon-ml-intern.png'),
 };
 
 type AgentKey = NewSessionAgentType;
@@ -71,6 +72,7 @@ const ALL_AGENTS: { key: AgentKey; label: string }[] = [
     { key: 'codex', label: 'codex' },
     { key: 'openclaw', label: 'openclaw' },
     { key: 'gemini', label: 'gemini' },
+    { key: 'ml-intern', label: 'ml intern' },
 ];
 
 type PickerItem = { key: string; label: string; subtitle?: string; dimmed?: boolean };
@@ -614,11 +616,15 @@ function NewSessionScreen() {
         }
     }, [worktreeItems, worktreeKey]);
 
-    // Filter available agents based on CLI availability from machine metadata
+    // Filter available agents based on CLI availability from machine metadata.
+    // 'ml-intern' maps to the 'mlIntern' key in CLIAvailability (camelCase).
     const availableAgents = React.useMemo(() => {
         const availability = selectedMachine?.metadata?.cliAvailability;
         if (!availability) return ALL_AGENTS;
-        return ALL_AGENTS.filter(a => availability[a.key]);
+        return ALL_AGENTS.filter(a => {
+            const availKey = a.key === 'ml-intern' ? 'mlIntern' : a.key;
+            return (availability as Record<string, boolean>)[availKey];
+        });
     }, [selectedMachine]);
 
     // If current agent not available on this machine, switch to first available

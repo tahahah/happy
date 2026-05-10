@@ -5,9 +5,9 @@ const name = {
     production: "Happy"
 }[variant];
 const bundleId = {
-    development: "com.slopus.happy.dev",
-    preview: "com.slopus.happy.preview",
-    production: "com.ex3ndr.happy"
+    development: "com.tahahah.happy.dev",
+    preview: "com.tahahah.happy.preview",
+    production: "com.tahahah.happy"
 }[variant];
 // const stagingElevenLabsAgentId = 'agent_7801k2c0r5hjfraa1kdbytpvs6yt';
 const productionElevenLabsAgentId = 'agent_6701k211syvvegba4kt7m68nxjmw';
@@ -186,7 +186,7 @@ export default {
                 root: "./sources/app"
             },
             eas: {
-                projectId: "4558dd3d-cd5a-47cd-bad9-e591a241cc06"
+                projectId: "ac394ceb-da58-4c01-9a8e-258f00f76295"
             },
             app: {
                 postHogKey: process.env.EXPO_PUBLIC_POSTHOG_API_KEY,
@@ -197,6 +197,6 @@ export default {
                 consoleLoggingDefault,
             }
         },
-        owner: "bulkacorp"
+        owner: process.env.EXPO_OWNER || "tahahah"
     }
 };
